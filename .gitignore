@@ -1,0 +1,38 @@
+# macOS
+.DS_Store
+
+# Xcode
+build/
+DerivedData/
+.derivedData/
+*.xcresult
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+xcuserdata/
+Timeline.xctimeline
+playground.xcworkspace
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Fastlane and CI artifacts
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output/
+TestResults/
+
+# Archives and symbols
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.xcarchive
+
+# Miscellaneous
+*.moved-aside
+*.hmap
+*.idea
+.env
+.env.*
