@@ -2,42 +2,52 @@
 //  pipelineUITests.swift
 //  pipelineUITests
 //
-//  Created by Darshan Regmi on 01/11/2026.
-//
 
 import XCTest
 
 final class pipelineUITests: XCTestCase {
-
     override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
-    }
-
-    override func tearDownWithError() throws {
-        // Put teardown code here. This method is called after the invocation of each test method in the class.
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
+    func testDemoFlowOpensDashboard() throws {
         let app = XCUIApplication()
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
-    }
+        let demoButton = app.buttons["Explore with demo data"]
 
-    @MainActor
-    func testLaunchPerformance() throws {
-        // This measures how long it takes to launch your application.
-        measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
+        // The simulator can keep app data between test runs. Clear it through
+        // the real Settings flow when the app opens on the dashboard.
+        if !demoButton.waitForExistence(timeout: 5) {
+            let settingsTab = app.tabBars.buttons["Settings"]
+            XCTAssertTrue(
+                settingsTab.waitForExistence(timeout: 5),
+                "Expected either the connect screen or the dashboard on launch."
+            )
+            settingsTab.tap()
+
+            let deleteAllButton = app.buttons["settings.deleteAllButton"]
+            XCTAssertTrue(deleteAllButton.waitForExistence(timeout: 5))
+            deleteAllButton.tap()
+
+            let confirmButton = app.buttons["Delete Everything"]
+            XCTAssertTrue(confirmButton.waitForExistence(timeout: 5))
+            confirmButton.tap()
+
+            XCTAssertTrue(
+                demoButton.waitForExistence(timeout: 10),
+                "Delete all local data should return to the connect screen."
+            )
         }
+
+        demoButton.tap()
+
+        XCTAssertTrue(
+            app.staticTexts["Builds need attention"].waitForExistence(timeout: 10),
+            "Demo data should open the dashboard with a failure summary."
+        )
+        XCTAssertTrue(app.tabBars.buttons["Repositories"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Settings"].exists)
     }
 }
