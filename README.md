@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/images/app-icon.png" alt="Pipeline app icon: a checkmark at the end of a three-stage pipeline" width="104">
+</p>
+
 # Pipeline
 
 **CI/CD status at a glance.**
@@ -86,11 +90,22 @@ pipeline/
 │   ├── DesignSystem/         Theme tokens and reusable components
 │   ├── Extensions/           Small shared SwiftUI/Foundation helpers
 │   └── PreviewSupport/       Preview-only store fixtures
-└── Resources/                Asset catalog
+├── Resources/                Asset catalog
+└── Scripts/                  App icon artwork generator
 ```
 
 The Xcode project uses synchronized folder references, so new files added under
 `pipeline/` are included automatically.
+
+## App icon
+
+The light, dark, and tinted icon variants are generated from
+`Scripts/GenerateAppIcon.swift`. Regenerate them with:
+
+```bash
+swift Scripts/GenerateAppIcon.swift \
+  pipeline/Resources/Assets.xcassets/AppIcon.appiconset
+```
 
 ## Documentation
 
