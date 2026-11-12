@@ -53,6 +53,25 @@ The scheme is committed at
 fresh checkout has no scheme to build — user schemes live in `xcuserdata/`,
 which is git-ignored.
 
+### Current limitation: the runner cannot open this project
+
+This project uses Xcode 27's folder-based format — a JSON `project.xcproj`
+with no `project.pbxproj`. Xcode 26 and earlier expect the classic file and
+fail with `missing its project.pbxproj file`.
+
+GitHub's newest hosted image (`macos-26-arm64`) ships Xcode 26.6, and there is
+no `macos-27` image yet. The workflow therefore detects the mismatch and skips
+the test step with a `::notice` annotation instead of failing red every push.
+It will start enforcing the suite automatically on the first image that ships
+Xcode 27.
+
+To make CI run today, either:
+
+- **lower the project to a shipping toolchain** — target iOS 26 and keep the
+  classic project format, which also makes the app installable on real devices
+  and buildable by contributors; or
+- **run on a self-hosted runner** with Xcode 27 installed.
+
 ## Unit tests
 
 Unit tests use [Swift Testing](https://developer.apple.com/xcode/swift-testing/):
