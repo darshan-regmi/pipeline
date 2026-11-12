@@ -15,7 +15,7 @@ before starting a large change so the work lands in the right milestone.
 
 ## Local setup
 
-1. Install Xcode 27.2 or newer.
+1. Install Xcode 26 or newer (developed against Xcode 27.2).
 2. Clone the repository and open `pipeline.xcodeproj`.
 3. Select the `pipeline` scheme and an iPhone simulator.
 4. Build and run, then choose **Explore with demo data**.
