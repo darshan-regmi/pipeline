@@ -1,0 +1,121 @@
+name: CI
+
+# Builds and tests Pipeline on a hosted macOS runner.
+#
+# Two things make this workflow less trivial than it looks:
+#
+#   1. The project uses Xcode's newer folder-based format (`project.xcproj`),
+#      and its only scheme used to live in `xcuserdata/`, which git ignores.
+#      The shared scheme at `xcshareddata/xcschemes/pipeline.xcscheme` is what
+#      makes `-scheme pipeline` resolve on a fresh checkout.
+#
+#   2. The app's deployment target moves with the newest SDK, while hosted
+#      runners lag behind local Xcode. So the runner picks the newest Xcode it
+#      has, then discovers an iPhone simulator that actually exists instead of
+#      hard-coding a device name that may not ship with that image.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: pipeline.xcodeproj
+  SCHEME: pipeline
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: macos-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select the newest installed Xcode
+        run: |
+          set -euo pipefail
+          # Hosted images ship several Xcode versions. Take the highest.
+          latest=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -n "${latest}" ]; then
+            sudo xcode-select -s "${latest}/Contents/Developer"
+          fi
+          echo "Using: ${latest:-system default}"
+          xcodebuild -version
+
+      - name: Discover an iPhone simulator
+        id: sim
+        run: |
+          set -euo pipefail
+          # Sort installed iOS runtimes by version, newest first, and take the
+          # first runtimes that actually contain a bootable iPhone device.
+          udid=$(xcrun simctl list devices available --json | jq -r '
+            .devices
+            | to_entries
+            | map(select(.key | test("SimRuntime\\.iOS")))
+            | sort_by(
+                (.key | capture("iOS-(?<v>[0-9-]+)").v)
+                | gsub("-"; ".")
+                | split(".")
+                | map(tonumber)
+              )
+            | reverse
+            | map(.value | map(select(.name | startswith("iPhone"))))
+            | map(select(length > 0))
+            | .[0][0].udid // empty')
+
+          if [ -z "${udid}" ]; then
+            echo "::error::No iPhone simulator is installed on this runner."
+            echo "Available runtimes:"
+            xcrun simctl list runtimes
+            exit 1
+          fi
+
+          name=$(xcrun simctl list devices available | grep "${udid}" | head -n 1 || true)
+          echo "Selected simulator: ${name}"
+          echo "udid=${udid}" >> "${GITHUB_OUTPUT}"
+
+      - name: Preflight — deployment target vs runner SDK
+        run: |
+          set -euo pipefail
+          target=$(grep -oE '"IPHONEOS_DEPLOYMENT_TARGET": "[0-9.]+"' "${PROJECT}/project.xcproj" \
+            | head -n 1 | grep -oE '[0-9]+\.[0-9]+' || true)
+          runtime=$(xcrun simctl list runtimes | grep -oE 'iOS [0-9.]+' | awk '{print $2}' | sort -V | tail -n 1 || true)
+          echo "Deployment target: ${target:-unknown} | newest runtime: ${runtime:-unknown}"
+          if [ -n "${target}" ] && [ -n "${runtime}" ]; then
+            newest=$(printf '%s\n%s\n' "${target}" "${runtime}" | sort -V | tail -n 1)
+            if [ "${target}" != "${runtime}" ] && [ "${newest}" = "${target}" ]; then
+              echo "::warning::The project targets iOS ${target} but this runner's newest runtime is iOS ${runtime}. The app cannot be built or tested here until the image updates — pin a newer runner or lower the deployment target."
+            fi
+          fi
+
+      - name: Run tests
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project "${PROJECT}" \
+            -scheme "${SCHEME}" \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath .derivedData \
+            -resultBundlePath TestResults/ci.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee xcodebuild-test.log
+
+      - name: Upload results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            TestResults/
+            xcodebuild-test.log
+          if-no-files-found: ignore
+          retention-days: 7
