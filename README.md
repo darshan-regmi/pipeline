@@ -135,3 +135,7 @@ sends no data to a server. See [PRIVACY.md](PRIVACY.md) and
 
 Contributions are welcome while the project is in prototype. Read
 [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
+
+## License
+
+[MIT](LICENSE) © 2026 Darshan Regmi
