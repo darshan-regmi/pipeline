@@ -53,24 +53,18 @@ The scheme is committed at
 fresh checkout has no scheme to build — user schemes live in `xcuserdata/`,
 which is git-ignored.
 
-### Current limitation: the runner cannot open this project
+### Project format
 
-This project uses Xcode 27's folder-based format — a JSON `project.xcproj`
-with no `project.pbxproj`. Xcode 26 and earlier expect the classic file and
-fail with `missing its project.pbxproj file`.
+The project is a classic `project.pbxproj` (`objectVersion = 77`) using
+synchronized folder references, so files added under `pipeline/` are picked up
+without being registered in the project file. It was converted from Xcode 27's
+folder-based `project.xcproj` format because that format cannot be opened by
+Xcode 26 — the newest version on GitHub's hosted runners — and would leave the
+repo unbuildable for anyone not on the bleeding edge.
 
-GitHub's newest hosted image (`macos-26-arm64`) ships Xcode 26.6, and there is
-no `macos-27` image yet. The workflow therefore detects the mismatch and skips
-the test step with a `::notice` annotation instead of failing red every push.
-It will start enforcing the suite automatically on the first image that ships
-Xcode 27.
-
-To make CI run today, either:
-
-- **lower the project to a shipping toolchain** — target iOS 26 and keep the
-  classic project format, which also makes the app installable on real devices
-  and buildable by contributors; or
-- **run on a self-hosted runner** with Xcode 27 installed.
+If you regenerate the project, keep `objectVersion = 77` and the
+`PBXFileSystemSynchronizedRootGroup` entries; dropping them switches the
+project back to explicit file lists.
 
 ## Unit tests
 

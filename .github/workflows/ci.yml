@@ -2,17 +2,16 @@ name: CI
 
 # Builds and tests Pipeline on a hosted macOS runner.
 #
-# Two things make this workflow less trivial than it looks:
+# Two details worth knowing before editing this file:
 #
-#   1. The project uses Xcode's newer folder-based format (`project.xcproj`),
-#      and its only scheme used to live in `xcuserdata/`, which git ignores.
-#      The shared scheme at `xcshareddata/xcschemes/pipeline.xcscheme` is what
-#      makes `-scheme pipeline` resolve on a fresh checkout.
+#   1. The scheme is committed at
+#      `pipeline.xcodeproj/xcshareddata/xcschemes/pipeline.xcscheme`. Xcode
+#      keeps user schemes in `xcuserdata/`, which git ignores, so without the
+#      shared copy `-scheme pipeline` does not resolve on a fresh checkout.
 #
-#   2. The app's deployment target moves with the newest SDK, while hosted
-#      runners lag behind local Xcode. So the runner picks the newest Xcode it
-#      has, then discovers an iPhone simulator that actually exists instead of
-#      hard-coding a device name that may not ship with that image.
+#   2. Hosted images change their simulator set and their Xcode version, so the
+#      job discovers an iPhone simulator by UDID instead of naming a device
+#      that may not exist on the image.
 
 on:
   push:
@@ -51,37 +50,12 @@ jobs:
           echo "Using: ${latest:-system default}"
           xcodebuild -version
 
-      - name: Check this runner can read the project
-        id: toolchain
-        run: |
-          set -euo pipefail
-          major=$(xcodebuild -version | head -n 1 | awk '{print $2}' | cut -d. -f1)
-
-          # The project uses Xcode 27's folder-based format: a JSON
-          # `project.xcproj` with no `project.pbxproj` beside it. Xcode 26 and
-          # earlier look for the classic file and fail with "missing its
-          # project.pbxproj file".
-          #
-          # GitHub's newest macOS image (macos-26-arm64) tops out at Xcode 26.6,
-          # so the suite cannot run here yet. Skipping with a notice keeps the
-          # badge truthful instead of permanently red; it starts enforcing
-          # automatically on the first image that ships Xcode 27.
-          if [ ! -f "${PROJECT}/project.pbxproj" ] && [ "${major}" -lt 27 ]; then
-            echo "supported=false" >> "${GITHUB_OUTPUT}"
-            echo "::notice title=Tests skipped::Xcode ${major} cannot open this folder-based project (project.xcproj, no project.pbxproj). GitHub's newest macOS image is macos-26-arm64 with Xcode 26.6. The suite runs as soon as an image ships Xcode 27."
-            exit 0
-          fi
-
-          echo "supported=true" >> "${GITHUB_OUTPUT}"
-          echo "Xcode ${major} can read this project."
-
       - name: Discover an iPhone simulator
         id: sim
-        if: steps.toolchain.outputs.supported == 'true'
         run: |
           set -euo pipefail
           # Sort installed iOS runtimes by version, newest first, and take the
-          # first runtimes that actually contain a bootable iPhone device.
+          # first runtime that actually contains a bootable iPhone device.
           udid=$(xcrun simctl list devices available --json | jq -r '
             .devices
             | to_entries
@@ -108,23 +82,7 @@ jobs:
           echo "Selected simulator: ${name}"
           echo "udid=${udid}" >> "${GITHUB_OUTPUT}"
 
-      - name: Preflight — deployment target vs runner SDK
-        if: steps.toolchain.outputs.supported == 'true'
-        run: |
-          set -euo pipefail
-          target=$(grep -oE '"IPHONEOS_DEPLOYMENT_TARGET": "[0-9.]+"' "${PROJECT}/project.xcproj" \
-            | head -n 1 | grep -oE '[0-9]+\.[0-9]+' || true)
-          runtime=$(xcrun simctl list runtimes | grep -oE 'iOS [0-9.]+' | awk '{print $2}' | sort -V | tail -n 1 || true)
-          echo "Deployment target: ${target:-unknown} | newest runtime: ${runtime:-unknown}"
-          if [ -n "${target}" ] && [ -n "${runtime}" ]; then
-            newest=$(printf '%s\n%s\n' "${target}" "${runtime}" | sort -V | tail -n 1)
-            if [ "${target}" != "${runtime}" ] && [ "${newest}" = "${target}" ]; then
-              echo "::warning::The project targets iOS ${target} but this runner's newest runtime is iOS ${runtime}. The app cannot be built or tested here until the image updates — pin a newer runner or lower the deployment target."
-            fi
-          fi
-
       - name: Run tests
-        if: steps.toolchain.outputs.supported == 'true'
         run: |
           set -o pipefail
           xcodebuild test \

@@ -42,9 +42,9 @@ and settings.
 
 ## Requirements
 
-- Xcode 27.2 or newer
-- iOS 27.2 simulator or device
-- Swift 6.4.2 toolchain (bundled with Xcode)
+- Xcode 26 or newer (developed against Xcode 27.2)
+- iOS 18 or newer deployment target — runs on any iPhone that supports iOS 18
+- Swift 6 toolchain (bundled with Xcode)
 - No third-party dependencies
 
 ## Run the app
