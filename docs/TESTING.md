@@ -36,6 +36,23 @@ xcodebuild test \
 To inspect results, open the generated `.xcresult` bundle in Xcode. The
 `.derivedData` directory is ignored by git.
 
+## Continuous integration
+
+`.github/workflows/ci.yml` runs the same suite on every push to `main` and on
+every pull request. The runner does three things the local command does not
+need to:
+
+1. Selects the newest Xcode installed on the image.
+2. Discovers an available iPhone simulator by UDID, newest iOS runtime first,
+   instead of hard-coding a device name that may not ship with the runner.
+3. Uploads `TestResults/ci.xcresult` and the build log as a workflow artifact
+   when the job fails.
+
+The scheme is committed at
+`pipeline.xcodeproj/xcshareddata/xcschemes/pipeline.xcscheme`. Without it a
+fresh checkout has no scheme to build — user schemes live in `xcuserdata/`,
+which is git-ignored.
+
 ## Unit tests
 
 Unit tests use [Swift Testing](https://developer.apple.com/xcode/swift-testing/):

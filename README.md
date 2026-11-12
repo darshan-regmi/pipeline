@@ -6,6 +6,8 @@
 
 **CI/CD status at a glance.**
 
+[![CI](https://github.com/darshan-regmi/pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/darshan-regmi/pipeline/actions/workflows/ci.yml)
+
 Pipeline is an iPhone-first app that answers one question before you open your
 laptop: _are my builds green?_ It shows the latest GitHub Actions result for the
 repositories you care about, with a dashboard, repository picker, run details,
